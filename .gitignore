@@ -1,0 +1,29 @@
+# Dependencias
+node_modules/
+
+# Producción
+build/
+dist/
+
+# Variables de entorno
+.env
+.env.local
+.env.production
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDEs
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Varios
+*.swp
+*.swo
+.eslintcache
