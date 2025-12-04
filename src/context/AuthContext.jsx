@@ -2,7 +2,8 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// 🔥 CORRECCIÓN FINAL: Pegamos el link de Railway aquí también
+const API_URL = 'https://telentotechbackreact-production.up.railway.app/api';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -20,19 +21,19 @@ export const AuthProvider = ({ children }) => {
   // Verificar si hay token al iniciar
   useEffect(() => {
     const access = localStorage.getItem('access_token');
-    const refresh = localStorage.getItem('refresh_token');
     const savedUser = localStorage.getItem('user');
 
-    if (access && refresh && savedUser) {
+    if (access && savedUser) {
       setIsAuthenticated(true);
       setUser(JSON.parse(savedUser));
     }
     setLoading(false);
   }, []);
 
-  // Login con Django JWT
+  // Login
   const login = async (username, password) => {
     try {
+      console.log("Intentando conectar a:", `${API_URL}/token/`); // Debug para consola
       const response = await fetch(`${API_URL}/token/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -40,51 +41,33 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!response.ok) {
-        return { success: false, error: 'Credenciales inválidas' };
+        if (response.status === 401) return { success: false, error: 'Usuario o contraseña incorrectos' };
+        return { success: false, error: 'Error en el servidor' };
       }
 
       const data = await response.json();
 
-      // Guardar tokens con los nombres correctos
+      // Guardar tokens
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
 
-      // Obtener información del usuario (incluyendo is_staff)
-      try {
-        const userResponse = await fetch(`${API_URL}/user/`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${data.access}`,
-            'Content-Type': 'application/json'
-          }
-        });
+      // Guardar datos básicos del usuario
+      // (Como no tenemos endpoint de /user/ profile, usamos el nombre localmente)
+      // Ajuste para que seas admin inmediatamente si te llamas "admin"
+      const userData = { 
+          username, 
+          is_staff: username.toLowerCase() === 'admin' 
+      };
+      
+      localStorage.setItem('user', JSON.stringify(userData));
+      setIsAuthenticated(true);
+      setUser(userData);
 
-        let userData = { username };
+      return { success: true };
 
-        if (userResponse.ok) {
-          const userInfo = await userResponse.json();
-          userData = {
-            username: userInfo.username,
-            email: userInfo.email,
-            is_staff: userInfo.is_staff
-          };
-        }
-
-        localStorage.setItem('user', JSON.stringify(userData));
-        setIsAuthenticated(true);
-        setUser(userData);
-
-        return { success: true };
-      } catch (err) {
-        // Si falla obtener info del usuario, usar datos básicos
-        const userData = { username };
-        localStorage.setItem('user', JSON.stringify(userData));
-        setIsAuthenticated(true);
-        setUser(userData);
-        return { success: true };
-      }
     } catch (error) {
-      return { success: false, error: 'Error de conexión con el servidor' };
+      console.error("Error de login:", error);
+      return { success: false, error: 'Error de conexión con el servidor (Revisa tu internet)' };
     }
   };
 
