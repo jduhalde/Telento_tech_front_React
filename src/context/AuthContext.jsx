@@ -92,7 +92,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (error) {
-      return { success: false, error: 'Error de conexión con el servidor' };
+      return { success: false, error: '⚠️ AÚN NO CONECTA: Revisa el Backend' };
     }
   };
 
