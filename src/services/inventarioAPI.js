@@ -1,8 +1,6 @@
 import axios from 'axios';
 
-// 🔥 CAMBIO CLAVE: Escribimos la dirección de Railway directamente.
-// Esto elimina cualquier problema con las variables de Vercel.
-const BASE_URL = 'https://telentotechbackreact-production.up.railway.app/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -11,7 +9,6 @@ const api = axios.create({
   },
 });
 
-// Interceptor para agregar token JWT a las peticiones
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -23,18 +20,15 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Interceptor para manejar errores de respuesta
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('Error en la API:', error);
 
-    // Si el token expiró (401), cerrar sesión
     if (error.response?.status === 401) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
-      // Opcional: Redirigir al login si no estamos ya ahí
       if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';
       }
@@ -45,7 +39,6 @@ api.interceptors.response.use(
 
 export const inventarioAPI = {
 
-  // ============== TEST ==============
   test: async () => {
     try {
       const response = await api.get('/test');
@@ -55,7 +48,14 @@ export const inventarioAPI = {
     }
   },
 
-  // ============== PRODUCTOS ==============
+  getCategorias: async () => {
+    try {
+      const response = await api.get('/categorias/');
+      return response.data;
+    } catch (error) {
+      throw new Error('Error al obtener categorías');
+    }
+  },
 
   getProductos: async (page = 1, pageSize = 9, filters = {}) => {
     try {
@@ -84,8 +84,6 @@ export const inventarioAPI = {
     const response = await api.delete(`/productos/${id}/eliminar/`);
     return response.data;
   },
-
-  // ============== COMPRAS ==============
 
   procesarCompra: async (items) => {
     try {

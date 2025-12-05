@@ -52,14 +52,12 @@ const InventarioAdmin = () => {
     setLoading(true);
     setError(null);
     try {
-      // Construir URL con parámetros
-      let url = `/productos/?page=${currentPage}&page_size=${pageSize}`;
-      if (searchTerm) url += `&search=${searchTerm}`;
-      if (categoriaFilter) url += `&categoria=${categoriaFilter}`;
-
-      const response = await fetch(`http://localhost:5000/api${url}`);
-      const data = await response.json();
-
+      const filters = {
+        search: searchTerm,
+        categoria: categoriaFilter
+      };
+      const data = await inventarioAPI.getProductos(currentPage, pageSize, filters);
+      
       setProductos(data.results || data);
       setTotalProductos(data.count || data.length);
       setTotalPages(Math.ceil((data.count || data.length) / pageSize));

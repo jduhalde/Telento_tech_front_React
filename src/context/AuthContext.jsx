@@ -2,8 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-// 🔥 CORRECCIÓN FINAL: Pegamos el link de Railway aquí también
-const API_URL = 'https://telentotechbackreact-production.up.railway.app/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -18,7 +17,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Verificar si hay token al iniciar
   useEffect(() => {
     const access = localStorage.getItem('access_token');
     const savedUser = localStorage.getItem('user');
@@ -30,10 +28,8 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Login
   const login = async (username, password) => {
     try {
-      console.log("Intentando conectar a:", `${API_URL}/token/`); // Debug para consola
       const response = await fetch(`${API_URL}/token/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,13 +43,9 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
 
-      // Guardar tokens
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
 
-      // Guardar datos básicos del usuario
-      // (Como no tenemos endpoint de /user/ profile, usamos el nombre localmente)
-      // Ajuste para que seas admin inmediatamente si te llamas "admin"
       const userData = { 
           username, 
           is_staff: username.toLowerCase() === 'admin' 
@@ -67,11 +59,10 @@ export const AuthProvider = ({ children }) => {
 
     } catch (error) {
       console.error("Error de login:", error);
-      return { success: false, error: 'Error de conexión con el servidor (Revisa tu internet)' };
+      return { success: false, error: 'Error de conexión con el servidor' };
     }
   };
 
-  // Register
   const register = async (formData) => {
     try {
       const response = await fetch(`${API_URL}/register/`, {
@@ -92,11 +83,10 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (error) {
-      return { success: false, error: '⚠️ AÚN NO CONECTA: Revisa el Backend' };
+      return { success: false, error: 'Error de conexión' };
     }
   };
 
-  // Logout
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
