@@ -7,8 +7,9 @@ import { FaPlus, FaSearch, FaFilter, FaTimes, FaSave, FaArrowLeft, FaArrowRight 
 import { Helmet } from 'react-helmet-async';
 
 const Products = () => {
-    const { user } = useAuth(); // Para saber si es admin
+    const { user } = useAuth();
     const [productos, setProductos] = useState([]);
+    const [categorias, setCategorias] = useState([]);
     const [loading, setLoading] = useState(true);
     
     // Filtros y Paginación
@@ -19,25 +20,36 @@ const Products = () => {
     
     // Estado para el Modal de Edición/Creación
     const [modalOpen, setModalOpen] = useState(false);
-    const [productoEditar, setProductoEditar] = useState(null); // null = creando, objeto = editando
+    const [productoEditar, setProductoEditar] = useState(null);
 
-    // Cargar productos al montar o al cambiar filtros/página
+    // Cargar categorías al montar
+    useEffect(() => {
+        cargarCategorias();
+    }, []);
+
+    // Cargar productos al cambiar filtros/página
     useEffect(() => {
         cargarProductos();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, search, categoria]);
 
+    const cargarCategorias = async () => {
+        try {
+            const data = await inventarioAPI.getCategorias();
+            setCategorias(data.results || data);
+        } catch (error) {
+            console.error("Error cargando categorías:", error);
+        }
+    };
+
     const cargarProductos = async () => {
         setLoading(true);
         try {
-            // Llamamos a la API con los filtros
             const filters = { search, categoria };
-            const data = await inventarioAPI.getProductos(page, 9, filters); // 9 items por página
+            const data = await inventarioAPI.getProductos(page, 9, filters);
             
-            // Adaptamos según si la API devuelve paginación de DRF (count, results) o lista directa
             if (data.results) {
                 setProductos(data.results);
-                // Calculamos total de páginas (asumiendo page_size=9)
                 setTotalPages(Math.ceil(data.count / 9)); 
             } else {
                 setProductos(data);
@@ -50,16 +62,12 @@ const Products = () => {
         }
     };
 
-    // ==========================================
-    // LÓGICA DE ADMINISTRADOR (CRUD)
-    // ==========================================
-
     const handleEliminar = async (id) => {
-        if (window.confirm("¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.")) {
+        if (window.confirm("¿Estás seguro de eliminar este producto?")) {
             try {
                 await inventarioAPI.deleteProducto(id);
                 toast.success("Producto eliminado correctamente");
-                cargarProductos(); // Recargar lista
+                cargarProductos();
             } catch (error) {
                 toast.error("Error al eliminar el producto");
             }
@@ -75,11 +83,11 @@ const Products = () => {
         e.preventDefault();
         const form = e.target;
         
-        // Validación básica (Requerimiento #2)
         const nombre = form.nombre.value;
         const precio = parseFloat(form.precio.value);
         const descripcion = form.descripcion.value;
         const stock = parseInt(form.stock.value);
+        const categoriaId = form.categoria.value;
 
         if (!nombre || precio <= 0 || descripcion.length < 10) {
             toast.warning("Revisa los datos: Nombre obligatorio, Precio > 0, Descripción > 10 caracteres.");
@@ -91,22 +99,21 @@ const Products = () => {
             precio,
             descripcion,
             stock,
-            categoria_nombre: form.categoria.value // Enviamos el nombre de la categoría (simple para este ejemplo)
+            categoria: categoriaId
         };
 
         try {
             if (productoEditar) {
-                // Editar
                 await inventarioAPI.updateProducto(productoEditar.id, datos);
                 toast.success("Producto actualizado");
             } else {
-                // Crear
                 await inventarioAPI.createProducto(datos);
                 toast.success("Producto creado");
             }
             setModalOpen(false);
             cargarProductos();
         } catch (error) {
+            console.error("Error al guardar:", error);
             toast.error("Error al guardar. Verifica la conexión.");
         }
     };
@@ -126,7 +133,7 @@ const Products = () => {
                     <FaSearch className="text-gray-400 mr-2" />
                     <input 
                         type="text" 
-                        placeholder="Buscar hamburguesa..." 
+                        placeholder="Buscar producto..." 
                         className="outline-none w-full md:w-64"
                         value={search}
                         onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -142,11 +149,9 @@ const Products = () => {
                         onChange={(e) => { setCategoria(e.target.value); setPage(1); }}
                     >
                         <option value="">Todas las categorías</option>
-                        <option value="Hamburguesas">Hamburguesas</option>
-                        <option value="Pizzas">Pizzas</option>
-                        <option value="Empanadas">Empanadas</option>
-                        <option value="Bebidas">Bebidas</option>
-                        <option value="Postres">Postres</option>
+                        {categorias.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                        ))}
                     </select>
                 </div>
 
@@ -171,7 +176,6 @@ const Products = () => {
                             <ProductCard 
                                 key={prod.id} 
                                 producto={prod}
-                                // Pasamos las funciones de Admin
                                 onEdit={user?.is_staff ? handleAbrirModal : undefined}
                                 onDelete={user?.is_staff ? handleEliminar : undefined}
                             />
@@ -203,7 +207,7 @@ const Products = () => {
                 </button>
             </div>
 
-            {/* MODAL DE EDICIÓN/CREACIÓN (Solo visible si modalOpen es true) */}
+            {/* MODAL DE EDICIÓN/CREACIÓN */}
             {modalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-up">
@@ -221,7 +225,7 @@ const Products = () => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Precio ($)</label>
-                                    <input name="precio" type="number" defaultValue={productoEditar?.precio} className="w-full border rounded p-2" required min="1" />
+                                    <input name="precio" type="number" step="0.01" defaultValue={productoEditar?.precio} className="w-full border rounded p-2" required min="1" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Stock</label>
@@ -231,13 +235,16 @@ const Products = () => {
 
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Categoría</label>
-                                <select name="categoria" defaultValue={productoEditar?.categoria_nombre || ''} className="w-full border rounded p-2 bg-white">
-                                    <option value="Hamburguesas">Hamburguesas</option>
-                                    <option value="Pizzas">Pizzas</option>
-                                    <option value="Empanadas">Empanadas</option>
-                                    <option value="Bebidas">Bebidas</option>
-                                    <option value="Postres">Postres</option>
-                                    <option value="Otros">Otros</option>
+                                <select 
+                                    name="categoria" 
+                                    defaultValue={productoEditar?.categoria?.id || productoEditar?.categoria || ''} 
+                                    className="w-full border rounded p-2 bg-white"
+                                    required
+                                >
+                                    <option value="">Seleccionar categoría</option>
+                                    {categorias.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                                    ))}
                                 </select>
                             </div>
 
